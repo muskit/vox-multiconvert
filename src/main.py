@@ -1,5 +1,6 @@
 from util import cls
 from database import *
+from ui import ui_loop
 
 '''
 =====PREPEND PROPERTIES=====
@@ -28,13 +29,10 @@ chokkakuvol=65
 '''
 
 def main():
-    contentPath = input("insert dir here\n")
-    db = Database(contentPath)
-    db.get_song_content()
-
-
-    # for child in et:
-    #     print(child.find('info').find('title_name').text)
+    # contentPath = input("insert dir here\n")
+    # contentPath = '/Users/alex/Desktop/KFC/contents'
+    # db = Database(contentPath)
+    ui_loop()
 
 if __name__ == '__main__':
     main()
