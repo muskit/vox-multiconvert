@@ -7,6 +7,8 @@ from PIL import Image, ImageTk
 from structs import Difficulty, Song
 from util import *
 from database import Database
+from convert import *
+import gbl
 
 # Directory Setting Window
 # Once done selecting, access selected path with .path.get()
@@ -15,8 +17,9 @@ class InitDirectorySelect(ttk.Frame):
         super().__init__(master, padding='20 20')
         self.master = master
         self.pack()
-        self.create_widgets()
         self.okClicked = False
+        self.list = None
+        self.create_widgets()
     
     def create_widgets(self):
         self.master.title("Set your \"contents\" directory")
@@ -58,6 +61,68 @@ class InitDirectorySelect(ttk.Frame):
             self.btnFileDialog.state(['!focus'])
             self.btnContinue.state(['disabled'])
 
+class SongList(ttk.Frame):
+    def __init__(self, master, conversion=False):
+        super().__init__(master)
+        self.master = master
+        self.conversion = conversion
+        self.create_widgets()
+        self.refreshList()
+
+    def create_widgets(self):
+        self.tblSong = ttk.Treeview(self, columns=('Title', 'Artist', 'Source'))
+        self.tblSong.heading('#0', text='ID')
+        self.tblSong.heading('#1', text='Title')
+        self.tblSong.heading('#2', text='Artist')
+        self.tblSong.heading('#3', text='Source')
+        self.tblSong.column('#0', width=80, stretch=NO)
+        self.tblSong.column('#1', stretch=YES)
+        self.tblSong.column('#2', stretch=YES)
+        self.tblSong.column('#3', width=100,stretch=NO)
+        
+        self.tblSong.bind('<<TreeviewSelect>>', self.onListSel)
+        
+        self.scrlbrSong = ttk.Scrollbar(self, command=self.tblSong.yview)
+        self.tblSong.configure(yscrollcommand = self.scrlbrSong.set)
+        self.tblSong.grid(column=0, row=0, sticky='nsew')
+        self.scrlbrSong.grid(column=1, row=0, sticky='ns')
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        
+    def refreshList(self):
+        if self.conversion:
+            self.list = gbl.songIdSelections
+            self.tblSong.configure(selectmode='none')
+        else:
+            self.list = gbl.songDb.songs
+        for elem in self.list:
+            song = gbl.songDb[elem]
+            self.tblSong.insert('', 'end', text=elem, values=(song.title, song.artist, song.version))
+
+        self.tblSong.tag_configure('done', foreground='gray')
+        # itmList = self.tblSong.get_children()
+        # self.tblSong.selection_toggle(itmList[0]) <---- CONVERSION: how to mark in-progress conversion
+        # self.tblSong.item(itmList[0], tags=('done')) <--- CONVERSION: how to mark item as done visually
+    
+    def onListSel(self, ev):
+        sels = self.tblSong.selection()
+        gbl.songIdSelections = []
+        for _, elem in enumerate(sels):
+            gbl.songIdSelections.append(self.tblSong.item(elem, 'text'))
+
+        # for song preview
+        selId = self.tblSong.item(self.tblSong.focus(), 'text')
+        if selId != '':
+            gbl.songSelected = gbl.songDb[selId]
+        else:
+            gbl.songSelected = None
+        
+        self.event_generate('<<selectedSong>>')
+    
+    def select_all(self):
+        self.tblSong.selection_set(self.tblSong.get_children())
+
 class SongPreview(ttk.Frame):
     def __init__(self, master):
         super().__init__(master)
@@ -85,16 +150,15 @@ class SongPreview(ttk.Frame):
         self.lblDate.grid(column=4, row=7, sticky=W)
 
     def set_song(self, ev=None):
-        global songSelected
-        if songSelected == None: return
+        if gbl.songSelected == None: return
 
-        self.varTitle.set(songSelected.title)
-        self.varArtist.set(songSelected.artist)
-        self.lblSource.configure(text=VERSION_GAME[songSelected.version])
-        self.lblDate.configure(text=songSelected.dateReleased.strftime('%Y/%m/%d'))
+        self.varTitle.set(gbl.songSelected.title)
+        self.varArtist.set(gbl.songSelected.artist)
+        self.lblSource.configure(text=VERSION_GAME[gbl.songSelected.version])
+        self.lblDate.configure(text=gbl.songSelected.dateReleased.strftime('%Y/%m/%d'))
         
         idx = 0
-        for curDiff in songSelected.diffArr:
+        for curDiff in gbl.songSelected.diffArr:
             self.diff[idx].set_diff(curDiff)
             idx += 1
         if idx-1 < 3:
@@ -122,8 +186,6 @@ class SongDifficulty(ttk.Frame):
         self.entEff.pack()
 
     def set_diff(self, newDiff: Difficulty = None):
-        global songDb
-        global songSelected
         self.lblDif.configure(text=newDiff.tag if newDiff != None else '---')
         self.lblLvl.configure(text=newDiff.num if newDiff != None else '---')
         self.varEff.set(newDiff.effector if newDiff != None else '---')
@@ -133,66 +195,40 @@ class SongDifficulty(ttk.Frame):
             imgR = img.resize((80,80))
             self.imgTk = ImageTk.PhotoImage(imgR)
         else: # set self.imgTk to be jacket
-            img = Image.open("{}/data/music/{}/{}".format(songDb.contentPath, songSelected.folder, newDiff.illustPath))
+            img = Image.open("{}/{}/{}/{}".format(gbl.songDb.contentPath, MUSIC_PATH, gbl.songSelected.folder, newDiff.illustPath))
             imgR = img.resize((80,80))
             self.imgTk = ImageTk.PhotoImage(imgR)
         self.lblImg.configure(image=self.imgTk)
 
-class SongList(ttk.Frame):
+class ConvertWindow(ttk.Frame):
     def __init__(self, master):
         super().__init__(master)
         self.master = master
-        
+        self.master.title('Conversion Preview')
+        self.pack(expand=YES, fill=BOTH)
         self.create_widgets()
-        self.refreshList()
-
+        self.master.master.master.withdraw()
+    
     def create_widgets(self):
-        self.trelSong = ttk.Treeview(self, columns=('Title', 'Artist', 'Source'))
-        self.trelSong.heading('#0', text='ID')
-        self.trelSong.heading('#1', text='Title')
-        self.trelSong.heading('#2', text='Artist')
-        self.trelSong.heading('#3', text='Source')
-        self.trelSong.column('#0', width=80, stretch=NO)
-        self.trelSong.column('#1', stretch=YES)
-        self.trelSong.column('#2', stretch=YES)
-        self.trelSong.column('#3', width=100,stretch=NO)
-        
-        self.trelSong.bind('<<TreeviewSelect>>', self.onListSel)
-        
-        self.scrlbrSong = ttk.Scrollbar(self, command=self.trelSong.yview)
-        self.trelSong.configure(yscrollcommand = self.scrlbrSong.set)
-        self.trelSong.grid(column=0, row=0, sticky='nsew')
-        self.scrlbrSong.grid(column=1, row=0, sticky='ns')
+        self.lblMsg = ttk.Label(self, text='The following songs will be converted:', justify='left')
+        self.tblList = SongList(self, conversion=True)
+        self.pnlOptions = ttk.Frame(self)
+        self.pnlOptions.btnConvert = ttk.Button(self.pnlOptions, text='Convert', command=self.begin_conversion)
+        self.pnlOptions.btnCancel = ttk.Button(self.pnlOptions, text='Cancel', command=self.master.destroy)
 
-        self.columnconfigure(0, weight=1)
-        self.rowconfigure(0, weight=1)
-        
-    def refreshList(self):
-        global songDb
-        for elem in songDb.songs:
-            song = songDb[elem]
-            self.trelSong.insert('', 'end', text=elem, values=(song.title, song.artist, song.version))
-    
-    def onListSel(self, ev):
-        global songDb
-        global songSelections
-        global songSelected
-        sels = self.trelSong.selection()
-        songSelections = []
-        for _, elem in enumerate(sels):
-            songSelections.append(self.trelSong.item(elem, 'text'))
+        self.lblMsg.pack()
+        self.tblList.pack(expand=YES, fill=BOTH)
+        self.pnlOptions.pack(anchor=E)
+        self.pnlOptions.btnConvert.pack(side=RIGHT)
+        self.pnlOptions.btnCancel.pack(side=RIGHT)
 
-        # for song preview
-        selId = self.trelSong.item(self.trelSong.focus(), 'text')
-        if selId != '':
-            songSelected = songDb[selId]
-        else:
-            songSelected = None
-        
-        self.event_generate('<<selectedSong>>')
-    
-    def select_all(self, *pargs):
-        self.trelSong.selection_set(self.trelSong.get_children())
+    def begin_conversion(self):
+        for id in gbl.songIdSelections:
+            convert_chart(id)
+
+    def destroy(self):
+        self.master.master.winfo_toplevel().deiconify()
+        super().destroy()
 
 # main application window
 class MainApp(ttk.Frame):
@@ -207,8 +243,8 @@ class MainApp(ttk.Frame):
         self.songList = SongList(self)
         self.songPreview = SongPreview(self)
         self.pnlOptions = ttk.Frame(self)
-        self.pnlOptions.btnSelAll = ttk.Button(self.pnlOptions, text='Select All')
-        self.pnlOptions.btnConvert = ttk.Button(self.pnlOptions, text='Convert')
+        self.pnlOptions.btnSelAll = ttk.Button(self.pnlOptions, text='Select All', command=self.songList.select_all)
+        self.pnlOptions.btnConvert = ttk.Button(self.pnlOptions, text='Convert', command=self.on_convert_pressed, state=DISABLED)
         self.pnlOptions.lblSelCnt = ttk.Label(self.pnlOptions, text='Selected 0 songs')
 
         self.songList.grid(row=0, column=0, sticky='nsew')
@@ -222,17 +258,23 @@ class MainApp(ttk.Frame):
         self.rowconfigure(0, weight=1)
 
         self.songList.bind('<<selectedSong>>', self.on_song_selected)
-        self.pnlOptions.btnSelAll.bind('<ButtonRelease>', self.songList.select_all)
 
     def on_song_selected(self, ev):
-        global songDb
         self.songPreview.set_song()
-        global songSelections
-        size = '{}/{}'.format(len(songSelections), len(songDb.tree))
-        if len(songSelections) == 1:
+        if len(gbl.songIdSelections) > 0:
+            self.pnlOptions.btnConvert.state(['!disabled'])
+        else:
+            self.pnlOptions.btnConvert.state(['disabled'])
+        size = '{}/{}'.format(len(gbl.songIdSelections), len(gbl.songDb.tree))
+        if len(gbl.songIdSelections) == 1:
             self.pnlOptions.lblSelCnt.configure(text='Selected {} song'.format(size))
         else:
             self.pnlOptions.lblSelCnt.configure(text='Selected {} songs'.format(size))
+
+    def on_convert_pressed(self):
+        cpreTl = Toplevel(self)
+        conversionPreview = ConvertWindow(cpreTl)
+        cpreTl.mainloop()
 
 def ui_loop():
     root = Tk()
@@ -249,8 +291,7 @@ def ui_loop():
         print("Bad path!")
         return
 
-    global songDb
-    songDb = Database(contentPath)
+    gbl.songDb = Database(contentPath)
     root = Tk()
     main = MainApp(root)
     main.mainloop()

@@ -6,7 +6,7 @@ import re
 import datetime
 
 from structs import *
-from util import open_contents_db
+from util import *
 
 def tempo_str(low, high):
     if(low == high):
@@ -28,6 +28,7 @@ class Database:
         for elem in self.tree:
             info = elem.find('info')
             id = elem.get('id')
+            if id in SONGID_BLACKLIST: continue
             self.songs[id] = Song(id,
                 '{}_{}'.format(id.zfill(4), info.find('ascii').text),
                 info.find('title_name').text,
@@ -39,14 +40,18 @@ class Database:
                 
             jackets = self.get_jacket_paths(id)
             jktIdx = 0
+            charts = self.get_chart_paths(id)
+            chartIdx = 0
             diffs = elem.find('difficulty')
             for diff in diffs:
                 if diff.find('illustrator').text != 'dummy' and diff.find('effected_by').text != 'dummy':
                     self.songs[id].diffArr.append(Difficulty(diff.tag,
                         diff.find('difnum').text,
+                        charts[chartIdx],
                         diff.find('effected_by').text,
                         jackets[jktIdx], # TODO: rework; img not indexed correctly (edge case: song ID 223)
                         diff.find('illustrator').text))
+                    chartIdx += 1
                 if jktIdx < len(jackets) - 1:
                     jktIdx += 1
     
@@ -57,10 +62,19 @@ class Database:
         song = self.songs[id]
         if song == None:
             return []
-        path = '{}/data/music/{}/'.format(self.contentPath, song.folder)
+        path = '{}/{}/{}/'.format(self.contentPath, MUSIC_PATH, song.folder)
         for (root, dirs, files) in os.walk(path):
             return sorted([file for file in files
                 if re.search(r'b.png$', file)])
+
+    def get_chart_paths(self, id):
+        song = self.songs[id]
+        if song == None:
+            return []
+        path = '{}/{}/{}/'.format(self.contentPath, MUSIC_PATH, song.folder)
+        for (root, dirs, files) in os.walk(path):
+            return sorted([file for file in files
+                if re.search(r'.vox$', file)])
     
     # returns array of songs' names
     def get_song_content(self):

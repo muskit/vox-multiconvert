@@ -139,3 +139,6 @@ cython_debug/
 
 # mac shenanigan
 .DS_Store
+
+# VS Code files
+.vscode
