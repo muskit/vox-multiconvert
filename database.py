@@ -3,6 +3,7 @@ from os.path import exists, isfile, basename
 import os
 from collections import OrderedDict
 import re
+import datetime
 
 from structs import *
 from util import open_contents_db
@@ -32,6 +33,7 @@ class Database:
                 info.find('title_name').text,
                 info.find('artist_name').text,
                 info.find('version').text,
+                datetime.datetime.strptime(info.find('distribution_date').text, '%Y%m%d'),
                 tempo_str(info.find('bpm_min').text, info.find('bpm_max').text),
                 [])
                 

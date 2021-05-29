@@ -1,6 +1,14 @@
 from os import system, name
 
 MUSIC_DB_PATH = 'data/others/music_db.xml'
+VERSION_GAME = {
+    '1': "SOUND VOLTEX BOOTH",
+    '2': "SOUND VOLTEX II -infinite infection-",
+    '3': "SOUND VOLTEX III GRAVITY WARS",
+    '4': "SOUND VOLTEX IV HEAVENLY HAVEN",
+    '5': "SOUND VOLTEX VIVID WAVE",
+    '6': "SOUND VOLTEX EXCEED GEAR"
+}
 
 def cls():
     # for windows

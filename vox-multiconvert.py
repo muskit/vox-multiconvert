@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from util import cls
 from database import *
 from ui import ui_loop
