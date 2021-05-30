@@ -9,4 +9,11 @@ A `.vox` to `.ksh` converter, with some additional features. Built off TsFreddie
 * `ffmpeg-python`
 
 ## Usage
-`python3 vox-multiconvert` or `./vox-multiconvert` (shebang'd)
+`python3 vox-multiconvert.py`
+
+or
+
+```
+chmod +x vox-multiconvert.py
+./vox-multiconvert.py # (shebang'd)
+```
