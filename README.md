@@ -7,3 +7,6 @@ A `.vox` to `.ksh` converter, with some additional features.
 * `tk`
 * `Pillow`
 * `ffmpeg-python`
+
+## Usage
+`python3 vox-multiconvert` or `./vox-multiconvert` (shebang'd)
