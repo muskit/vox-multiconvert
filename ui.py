@@ -297,6 +297,13 @@ class MainApp(ttk.Frame):
         self.create_widgets()
 
     def create_widgets(self):
+        self.menu = Menu(self)
+        self.menuFile = Menu(self.menu, tearoff=0)
+        self.menuEdit = Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label = 'File', menu = self.menuFile)
+        self.menu.add_cascade(label = 'Edit', menu = self.menuEdit)
+        self.menuFile.add_command(label='Open contents...')
+        self.menuEdit.add_command(label='Preferences')
         self.songList = SongList(self)
         self.songPreview = SongPreview(self)
         self.pnlOptions = ttk.Frame(self, padding='10 10')
@@ -304,6 +311,7 @@ class MainApp(ttk.Frame):
         self.pnlOptions.btnConvert = ttk.Button(self.pnlOptions, text='Convert', command=self.on_convert_pressed, state=DISABLED)
         self.pnlOptions.lblSelCnt = ttk.Label(self.pnlOptions, text='Selected 0 songs')
 
+        self.master.winfo_toplevel().config(menu=self.menu)
         self.songList.grid(row=0, column=0, sticky='nsew')
         self.songPreview.grid(row=1, column=0, sticky='w', padx=10, pady=10)
         self.pnlOptions.grid(row=2, sticky='we')
@@ -354,8 +362,9 @@ def ui_loop():
     if not content_path_valid(contentPath):
         print("Bad path!")
         return
-
     gbl.songDb = Database(contentPath)
+
+    # start main application
     root = Tk()
     main = MainApp(root)
     main.mainloop()
