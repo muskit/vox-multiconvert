@@ -3,6 +3,7 @@ import collections
 from tkinter import *
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
+import ffmpeg
 
 from structs import Difficulty, Song
 from util import *
@@ -328,6 +329,13 @@ class MainApp(ttk.Frame):
             self.pnlOptions.lblSelCnt.configure(text='Selected {} songs'.format(size))
 
     def on_convert_pressed(self):
+        try:
+            ffmpeg.input('').output('').run()
+        except FileNotFoundError:
+            messagebox.showerror('Error', 'Could not find ffmpeg for conversion. Check that it\'s in your PATH or set its location in Settings.')
+            return
+        except Exception:
+            pass
         cpreTl = Toplevel(self)
         conversionPreview = ConvertWindow(cpreTl)
         cpreTl.mainloop()
