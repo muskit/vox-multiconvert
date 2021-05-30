@@ -14,7 +14,7 @@ import gbl
 # Once done selecting, access selected path with .path.get()
 class InitDirectorySelect(ttk.Frame):
     def __init__(self, master=None):
-        super().__init__(master, padding='20 20')
+        super().__init__(master, padding='10 10')
         self.master = master
         self.pack()
         self.okClicked = False
@@ -35,11 +35,6 @@ class InitDirectorySelect(ttk.Frame):
         self.btnFileDialog = ttk.Button(self, text="Browse", command=self.dirDialog)
         self.btnFileDialog.pack(side=RIGHT)
 
-    def dirDialog(self):
-        newPath = filedialog.askdirectory()
-        if newPath != "":
-            self.path.set(newPath)
-
     def continuePressed(self):
         try:
             open_contents_db(self.path.get())
@@ -53,12 +48,15 @@ class InitDirectorySelect(ttk.Frame):
         self.okClicked = True
         self.master.destroy()
 
+    def dirDialog(self):
+        newPath = filedialog.askdirectory()
+        if newPath != "":
+            self.path.set(newPath)
+
     def pathChanged(self, *args):
         if len(self.path.get()) > 0:
-            self.btnContinue.state(['!disabled', 'focus'])
-            self.btnFileDialog.state(['!focus', 'disabled'])
+            self.btnContinue.state(['!disabled'])
         else:
-            self.btnFileDialog.state(['!focus'])
             self.btnContinue.state(['disabled'])
 
 class SongList(ttk.Frame):
@@ -108,7 +106,7 @@ class SongList(ttk.Frame):
     def onListSel(self, ev):
         sels = self.tblSong.selection()
         gbl.songIdSelections = []
-        for _, elem in enumerate(sels):
+        for elem in sels:
             gbl.songIdSelections.append(self.tblSong.item(elem, 'text'))
 
         # for song preview
@@ -117,7 +115,7 @@ class SongList(ttk.Frame):
             gbl.songSelected = gbl.songDb[selId]
         else:
             gbl.songSelected = None
-        
+
         self.event_generate('<<selectedSong>>')
     
     def select_all(self):
@@ -204,30 +202,88 @@ class ConvertWindow(ttk.Frame):
     def __init__(self, master):
         super().__init__(master)
         self.master = master
-        self.master.title('Conversion Preview')
+        self.master.title('Conversion')
         self.pack(expand=YES, fill=BOTH)
         self.create_widgets()
-        self.master.master.master.withdraw()
+        self.master.master.master.withdraw() # hide main window
     
     def create_widgets(self):
         self.lblMsg = ttk.Label(self, text='The following songs will be converted:', justify='left')
         self.tblList = SongList(self, conversion=True)
-        self.pnlOptions = ttk.Frame(self)
-        self.pnlOptions.btnConvert = ttk.Button(self.pnlOptions, text='Convert', command=self.begin_conversion)
-        self.pnlOptions.btnCancel = ttk.Button(self.pnlOptions, text='Cancel', command=self.master.destroy)
+        self.progressBar = ttk.Progressbar(self, maximum=len(gbl.songIdSelections), mode='determinate', orient=HORIZONTAL)
+        self.strProgress = StringVar()
+        self.lblProgress = ttk.Label(self, textvariable=self.strProgress)
+        self.pnlOptions = ttk.Frame(self, padding='10 10')
+        self.strPath = StringVar(None, gbl.exportDir)
+        self.strPath.trace('w', self.path_changed)
+        self.lblPath = ttk.Label(self.pnlOptions, text='Export to', justify='left')
+        self.entPath = ttk.Entry(self.pnlOptions, width=60, textvariable=self.strPath)
+        self.btnBrowse = ttk.Button(self.pnlOptions, text="Browse", command=self.dir_dialog)
+        self.btnConvert = ttk.Button(self.pnlOptions, text='Convert', command=self.begin_conversion)
+        self.btnCancel = ttk.Button(self.pnlOptions, text='Cancel', command=self.master.destroy)
 
         self.lblMsg.pack()
         self.tblList.pack(expand=YES, fill=BOTH)
-        self.pnlOptions.pack(anchor=E)
-        self.pnlOptions.btnConvert.pack(side=RIGHT)
-        self.pnlOptions.btnCancel.pack(side=RIGHT)
+        self.progressBar.pack(fill=X, padx=10)
+        self.lblProgress.pack()
+        self.pnlOptions.pack(anchor=E, fill=X)
+        self.lblPath.pack(anchor=W)
+        self.entPath.pack(fill=X)
+        self.btnBrowse.pack(side=LEFT)
+        self.btnConvert.pack(side=RIGHT)
+        self.btnCancel.pack(side=RIGHT)
+
+        if len(self.strPath.get()) > 0:
+            self.btnConvert.state(['!disabled'])
+        else:
+            self.btnConvert.state(['disabled'])
+
+    def dir_dialog(self):
+        newPath = filedialog.askdirectory()
+        if newPath != "":
+            self.strPath.set(newPath)
+
+    def path_changed(self, *pargs):
+        gbl.exportDir = self.strPath.get()
+        if len(self.strPath.get()) > 0:
+            self.btnConvert.state(['!disabled'])
+        else:
+            self.btnConvert.state(['disabled'])
 
     def begin_conversion(self):
-        for id in gbl.songIdSelections:
-            convert_chart(id)
+        # disable window closing
+        self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", lambda: None)
+        # disable widgets
+        self.entPath.state(['disabled'])
+        self.btnBrowse.state(['disabled'])
+        self.btnConvert.state(['disabled'])
+        self.btnCancel.state(['disabled'])
+        # convert files
+        for idx, id in enumerate(gbl.songIdSelections):
+            self.strProgress.set('Converting ID {} [{}/{}]'.format(id, idx+1, len(gbl.songIdSelections)))
+            self.update()
+            try:
+                create_song_directory(id)
+                convert_chart(id)
+                convert_audio(id)
+            except Exception as ex:
+                messagebox.showerror('Error', ex)
+            finally:
+                self.progressBar['value'] += 1.0
+                self.update()
+        self.strProgress.set('Done! [{}/{}]'.format(idx+1, len(gbl.songIdSelections)))
+        self.update()
+        # restore widgets
+        self.entPath.state(['!disabled'])
+        self.btnBrowse.state(['!disabled'])
+        self.btnConvert.state(['!disabled'])
+        self.btnCancel.state(['!disabled']) # TODO: stop after current song
+        # re-enable window closing
+        self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.master.destroy)
 
     def destroy(self):
         self.master.master.winfo_toplevel().deiconify()
+        self.master.master.update()
         super().destroy()
 
 # main application window
@@ -242,14 +298,14 @@ class MainApp(ttk.Frame):
     def create_widgets(self):
         self.songList = SongList(self)
         self.songPreview = SongPreview(self)
-        self.pnlOptions = ttk.Frame(self)
+        self.pnlOptions = ttk.Frame(self, padding='10 10')
         self.pnlOptions.btnSelAll = ttk.Button(self.pnlOptions, text='Select All', command=self.songList.select_all)
         self.pnlOptions.btnConvert = ttk.Button(self.pnlOptions, text='Convert', command=self.on_convert_pressed, state=DISABLED)
         self.pnlOptions.lblSelCnt = ttk.Label(self.pnlOptions, text='Selected 0 songs')
 
         self.songList.grid(row=0, column=0, sticky='nsew')
         self.songPreview.grid(row=1, column=0, sticky='w', padx=10, pady=10)
-        self.pnlOptions.grid(row=2, sticky='we', padx=10, pady=10)
+        self.pnlOptions.grid(row=2, sticky='we')
         self.pnlOptions.btnConvert.pack(side=RIGHT)
         self.pnlOptions.btnSelAll.pack(side=RIGHT)
         self.pnlOptions.lblSelCnt.pack(side=LEFT)

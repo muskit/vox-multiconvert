@@ -38,8 +38,6 @@ class Database:
                 tempo_str(info.find('bpm_min').text, info.find('bpm_max').text),
                 [])
                 
-            jackets = self.get_jacket_paths(id)
-            jktIdx = 0
             charts = self.get_chart_paths(id)
             chartIdx = 0
             diffs = elem.find('difficulty')
@@ -49,11 +47,17 @@ class Database:
                         diff.find('difnum').text,
                         charts[chartIdx],
                         diff.find('effected_by').text,
-                        jackets[jktIdx], # TODO: rework; img not indexed correctly (edge case: song ID 223)
+                        None, # TODO: rework; img not indexed correctly (edge case: song ID 223)
+                        None,
                         diff.find('illustrator').text))
                     chartIdx += 1
-                if jktIdx < len(jackets) - 1:
-                    jktIdx += 1
+
+            jackets = self.get_jacket_paths(id)
+            if len(jackets) <= 0: return
+            jktIdx = len(jackets) - 1
+            for idx, diff in reversed(list(enumerate(self.songs[id].diffArr))):
+                self.songs[id].diffArr[idx] = diff._replace(illustIdx = jktIdx, illustPath = jackets[jktIdx])
+                jktIdx -= 1 if jktIdx > 0 else 0
     
     def __getitem__(self, key):
         return self.songs[key]

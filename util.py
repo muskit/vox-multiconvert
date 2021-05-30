@@ -18,6 +18,14 @@ DIFF_VOX2KSH = {
     'maximum': 'infinite'
 }
 
+DIFF_ABBRV = {
+    'novice': 'nov',
+    'advanced': 'adv',
+    'exhaust': 'exh',
+    'infinite': 'inf',
+    'maximum': 'mxm'
+}
+
 SONGID_BLACKLIST = ('1438', '1259')
 
 def open_contents_db(path: str):
