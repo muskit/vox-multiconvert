@@ -45,14 +45,11 @@ def content_path_valid(path: str):
 def cls():
     # for windows
     if name == 'nt':
-        _ = system('cls')
-
-    # for mac and linux(here, os.name is 'posix')
+        system('cls')
+    # for mac and linux (os.name is probably 'posix')
     else:
-        _ = system('clear')
+        system('clear')
 
+# if returns non-zero, raises error
 def test_ffmpeg():
-    try:
-        subprocess.check_call(['ffmpeg' if config.ffmpegPath == '' else config.ffmpegPath, '-version'])
-    except Exception as e:
-        raise e
+    subprocess.check_call(['ffmpeg' if config.ffmpegPath == '' else config.ffmpegPath, '-version'], stdout=subprocess.DEVNULL)

@@ -33,7 +33,6 @@ def init():
 
 
 def save():
-    print('Saving...')
     confParser['PATHS']['contentPath'] = contentPath
     confParser['PATHS']['exportPath'] = exportPath
     confParser['PATHS']['ffmpegPath'] = ffmpegPath
