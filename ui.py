@@ -10,6 +10,7 @@ from util import *
 from database import Database
 from convert import *
 import gbl
+import config
 
 # Directory Setting Window
 # Once done selecting, access selected path with .path.get()
@@ -25,18 +26,20 @@ class InitDirectorySelect(ttk.Frame):
     def create_widgets(self):
         self.master.title("Set your \"contents\" directory")
 
-        self.path = StringVar()
-        self.path.trace('w', self.pathChanged)
+        self.path = StringVar(None, config.contentPath)
+        self.path.trace('w', self.path_changed)
         self.txtPath = ttk.Entry(self, width=60, textvariable=self.path)
         self.txtPath.pack()
 
-        self.btnContinue = ttk.Button(self, text="Continue", command=self.continuePressed, state=DISABLED)
+        self.btnContinue = ttk.Button(self, text="Continue", command=self.continue_pressed)
         self.btnContinue.pack(side=RIGHT)
 
-        self.btnFileDialog = ttk.Button(self, text="Browse", command=self.dirDialog)
+        self.btnFileDialog = ttk.Button(self, text="Browse", command=self.dir_dialog)
         self.btnFileDialog.pack(side=RIGHT)
 
-    def continuePressed(self):
+        self.path_changed()
+
+    def continue_pressed(self):
         try:
             open_contents_db(self.path.get())
         except FileNotFoundError:
@@ -47,14 +50,16 @@ class InitDirectorySelect(ttk.Frame):
             messagebox.showerror("Error", "Unknown error occured while opening {}.\n{}".format(MUSIC_DB_PATH, err))
             return
         self.okClicked = True
+        config.save()
         self.master.destroy()
 
-    def dirDialog(self):
-        newPath = filedialog.askdirectory()
+    def dir_dialog(self):
+        newPath = filedialog.askdirectory(initialdir = self.path.get())
         if newPath != "":
             self.path.set(newPath)
+            config.contentPath = newPath
 
-    def pathChanged(self, *args):
+    def path_changed(self, *args):
         if len(self.path.get()) > 0:
             self.btnContinue.state(['!disabled'])
         else:
@@ -199,6 +204,37 @@ class SongDifficulty(ttk.Frame):
             self.imgTk = ImageTk.PhotoImage(imgR)
         self.lblImg.configure(image=self.imgTk)
 
+class PreferencesWindow(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.master = master
+        self.master.title('Preferences')
+        self.master.resizable(False, False)
+        self.pack(expand=YES, fill=BOTH, padx=10, pady=10)
+        self.create_widgets()
+        self.master.protocol('WM_DELETE_WINDOW', self.on_close)
+
+    def create_widgets(self):
+        self.strFFmpeg = StringVar(None, value=config.ffmpegPath)
+        
+        self.ffmpegLabel = ttk.Label(self, text='Path to FFmpeg')
+        self.entFFmpeg = ttk.Entry(self, width=60, textvariable=self.strFFmpeg)
+        self.btnFFmpegBrowse = ttk.Button(self, text="Browse", command=self.ffmpeg_browse)
+
+        self.ffmpegLabel.grid(row = 0, column = 0, sticky=E, padx=(0, 5))
+        self.entFFmpeg.grid(row = 0, column = 1)
+        self.btnFFmpegBrowse.grid(row = 1, column = 1, sticky=E, pady=(5, 0))
+
+    def ffmpeg_browse(self):
+        newFile = filedialog.askopenfilename(initialfile=self.strFFmpeg.get())
+        if newFile != "":
+            self.strFFmpeg.set(newFile)
+            config.ffmpegPath = newFile
+
+    def on_close(self):
+        config.save()
+        self.master.destroy()
+
 class ConvertWindow(ttk.Frame):
     def __init__(self, master):
         super().__init__(master)
@@ -207,16 +243,19 @@ class ConvertWindow(ttk.Frame):
         self.pack(expand=YES, fill=BOTH)
         self.create_widgets()
         self.master.master.master.withdraw() # hide main window
+
+        self.interruptConvert = False
     
     def create_widgets(self):
+        self.strProgress = StringVar()
+        self.strPath = StringVar(None, config.exportPath)
+        self.strPath.trace('w', self.path_changed)
+
         self.lblMsg = ttk.Label(self, text='The following songs will be converted:', justify='left')
         self.tblList = SongList(self, conversion=True)
         self.progressBar = ttk.Progressbar(self, maximum=len(gbl.songIdSelections), mode='determinate', orient=HORIZONTAL)
-        self.strProgress = StringVar()
         self.lblProgress = ttk.Label(self, textvariable=self.strProgress)
         self.pnlOptions = ttk.Frame(self, padding='10 10')
-        self.strPath = StringVar(None, gbl.exportDir)
-        self.strPath.trace('w', self.path_changed)
         self.lblPath = ttk.Label(self.pnlOptions, text='Export to', justify='left')
         self.entPath = ttk.Entry(self.pnlOptions, width=60, textvariable=self.strPath)
         self.btnBrowse = ttk.Button(self.pnlOptions, text="Browse", command=self.dir_dialog)
@@ -245,24 +284,33 @@ class ConvertWindow(ttk.Frame):
             self.strPath.set(newPath)
 
     def path_changed(self, *pargs):
-        gbl.exportDir = self.strPath.get()
+        config.exportPath = self.strPath.get()
         if len(self.strPath.get()) > 0:
             self.btnConvert.state(['!disabled'])
         else:
             self.btnConvert.state(['disabled'])
 
+    # TODO: avoid UI freeze during conversion
     def begin_conversion(self):
+        def stop_conversion():
+            self.interruptConvert = True
+
+        print('Beginning conversion!!!')
+        config.save()
         # disable window closing
-        self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", lambda: None)
+        self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW")
         # disable widgets
         self.entPath.state(['disabled'])
         self.btnBrowse.state(['disabled'])
         self.btnConvert.state(['disabled'])
-        self.btnCancel.state(['disabled'])
+        self.btnCancel.configure(text='Stop', command=stop_conversion)
         # convert files
         for idx, id in enumerate(gbl.songIdSelections):
             self.strProgress.set('Converting ID {} [{}/{}]'.format(id, idx+1, len(gbl.songIdSelections)))
             self.update()
+            if self.interruptConvert:
+                self.interruptConvert = False
+                break
             try:
                 create_song_directory(id)
                 convert_chart(id)
@@ -274,11 +322,13 @@ class ConvertWindow(ttk.Frame):
                 self.update()
         self.strProgress.set('Done! [{}/{}]'.format(idx+1, len(gbl.songIdSelections)))
         self.update()
+
         # restore widgets
         self.entPath.state(['!disabled'])
         self.btnBrowse.state(['!disabled'])
         self.btnConvert.state(['!disabled'])
-        self.btnCancel.state(['!disabled']) # TODO: stop after current song
+        self.btnCancel.configure(text='Exit', command=self.master.destroy)
+
         # re-enable window closing
         self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.master.destroy)
 
@@ -303,7 +353,7 @@ class MainApp(ttk.Frame):
         self.menu.add_cascade(label = 'File', menu = self.menuFile)
         self.menu.add_cascade(label = 'Edit', menu = self.menuEdit)
         self.menuFile.add_command(label='Open contents...')
-        self.menuEdit.add_command(label='Preferences')
+        self.menuEdit.add_command(label='Preferences', command=self.open_preferences)
         self.songList = SongList(self)
         self.songPreview = SongPreview(self)
         self.pnlOptions = ttk.Frame(self, padding='10 10')
@@ -330,7 +380,7 @@ class MainApp(ttk.Frame):
             self.pnlOptions.btnConvert.state(['!disabled'])
         else:
             self.pnlOptions.btnConvert.state(['disabled'])
-        size = '{}/{}'.format(len(gbl.songIdSelections), len(gbl.songDb.tree))
+        size = '{}/{}'.format(len(gbl.songIdSelections), len(gbl.songDb.songs))
         if len(gbl.songIdSelections) == 1:
             self.pnlOptions.lblSelCnt.configure(text='Selected {} song'.format(size))
         else:
@@ -338,15 +388,23 @@ class MainApp(ttk.Frame):
 
     def on_convert_pressed(self):
         try:
-            ffmpeg.input('').output('').run()
+            test_ffmpeg()
         except FileNotFoundError:
-            messagebox.showerror('Error', 'Could not find ffmpeg for conversion. Check that it\'s in your PATH or set its location in Settings.')
+            messagebox.showerror('Error', 'Could not find FFmpeg for conversion. Check that it\'s in your PATH or set its location in Edit > Preferences.')
             return
-        except Exception:
-            pass
-        cpreTl = Toplevel(self)
-        conversionPreview = ConvertWindow(cpreTl)
-        cpreTl.mainloop()
+        except Exception as e:
+            messagebox.showerror('Error', 'Unknown error occured initializing FFmpeg. Bad executable?')
+            print(e.with_traceback(None))
+            return
+
+        convTl = Toplevel(self)
+        conversionWindow = ConvertWindow(convTl)
+        convTl.mainloop()
+
+    def open_preferences(self):
+        prefTl = Toplevel(self)
+        prefWin = PreferencesWindow(prefTl)
+        prefTl.mainloop()
 
 def ui_loop():
     root = Tk()

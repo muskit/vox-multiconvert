@@ -142,3 +142,6 @@ cython_debug/
 
 # VS Code files
 .vscode
+
+# Configuration from app
+config.ini

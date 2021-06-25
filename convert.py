@@ -7,6 +7,7 @@ import shutil
 from VOX2KSH.v2k import vox2ksh
 
 import gbl
+import config
 from structs import *
 from util import *
 
@@ -62,7 +63,7 @@ chokkakuvol=65
 '''
 
 def create_song_directory(songId):
-    newDir = '{}/{}/'.format(gbl.exportDir, gbl.songDb[songId].folder)
+    newDir = '{}/{}/'.format(config.exportPath, gbl.songDb[songId].folder)
     if not os.path.exists(os.path.dirname(newDir)):
         try:
             os.makedirs(os.path.dirname(newDir))
@@ -93,9 +94,9 @@ def convert_chart(songId):
         chartPath = '{}/{}'.format(songPath, diff.chartPath)
         ksh: str = vox2ksh(chartPath)[0]
         ksh.replace
-        with open('{}/{}/{}.ksh'.format(gbl.exportDir, song.folder, DIFF_ABBRV[diff.tag]), 'w', encoding="utf-8-sig", newline='\r\n') as f:
+        with open('{}/{}/{}.ksh'.format(config.exportPath, song.folder, DIFF_ABBRV[diff.tag]), 'w', encoding="utf-8-sig", newline='\r\n') as f:
             f.write(prependCom + prependDif + PREPEND_CONST + ksh)
-        illustExPath = '{}/{}/{}.png'.format(gbl.exportDir, song.folder, diff.illustIdx)
+        illustExPath = '{}/{}/{}.png'.format(config.exportPath, song.folder, diff.illustIdx)
         if not os.path.exists(illustExPath):
             shutil.copy('{}/{}'.format(songPath, diff.illustPath), illustExPath)
 
@@ -105,9 +106,9 @@ def convert_audio(songId):
     songText = gbl.songDb[songId].folder
     fullSongFolder = '{}/{}/{}'.format(gbl.songDb.contentPath, MUSIC_PATH, songText)
     inFile = '{}/{}.s3v'.format(fullSongFolder, songText)
-    outFile = '{}/{}/music.ogg'.format(gbl.exportDir, songText)
+    outFile = '{}/{}/music.ogg'.format(config.exportPath, songText)
     ffmpeg.input(inFile) \
         .audio \
         .output(outFile) \
-        .global_args('-loglevel', 'error') \
-        .run()
+        .global_args('-y') \
+        .run(cmd='ffmpeg' if config.ffmpegPath == '' else config.ffmpegPath)
