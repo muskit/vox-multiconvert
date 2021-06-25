@@ -1,9 +1,10 @@
 # vox-multiconvert
-A `.vox` to `.ksh` converter, with some additional features. Built off TsFreddie's `vox2ksh` project.
+A `.vox` to `.ksh` converter, with some additional features. Built off [TsFreddie's `vox2ksh` project](https://github.com/TsFreddie/VOX2KSH).
 Tested with December 2020 archives.
 
 ## Prerequisites
-`ffmpeg` install on PATH. Specifying location coming soon.
+`ffmpeg` install either on PATH or set up in `Edit > Preferences`.
+
 ### Required PIP Modules
 * `tk`
 * `Pillow`
