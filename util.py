@@ -1,4 +1,8 @@
 from os import system, name
+import subprocess
+import ffmpeg
+
+import config
 
 MUSIC_DB_PATH = 'data/others/music_db.xml'
 MUSIC_PATH = 'data/music'
@@ -46,3 +50,9 @@ def cls():
     # for mac and linux(here, os.name is 'posix')
     else:
         _ = system('clear')
+
+def test_ffmpeg():
+    try:
+        subprocess.check_call(['ffmpeg' if config.ffmpegPath == '' else config.ffmpegPath, '-version'])
+    except Exception as e:
+        raise e
