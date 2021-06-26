@@ -110,5 +110,5 @@ def convert_audio(songId):
     ffmpeg.input(inFile) \
         .audio \
         .output(outFile) \
-        .global_args('-y') \
-        .run(cmd='ffmpeg' if config.ffmpegPath == '' else config.ffmpegPath)
+        .global_args('-y', '-loglevel', 'error') \
+        .run(cmd='ffmpeg' if config.ffmpegPath == '' else config.ffmpegPath) # TODO: create util func to return cmd

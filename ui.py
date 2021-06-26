@@ -1,9 +1,9 @@
 # TKinter frontend
-import collections
 from tkinter import *
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
-import ffmpeg
+from threading import Thread
+from multiprocessing import Process
 
 from structs import Difficulty, Song
 from util import *
@@ -83,7 +83,8 @@ class SongList(ttk.Frame):
         self.tblSong.column('#1', stretch=YES)
         self.tblSong.column('#2', stretch=YES)
         self.tblSong.column('#3', width=100,stretch=NO)
-        
+        self.tblSong.tag_configure('done', foreground='gray')
+        self.tblSong.tag_configure('error', foreground='red')
         self.tblSong.bind('<<TreeviewSelect>>', self.onListSel)
         
         self.scrlbrSong = ttk.Scrollbar(self, command=self.tblSong.yview)
@@ -103,13 +104,10 @@ class SongList(ttk.Frame):
         for elem in self.list:
             song = gbl.songDb[elem]
             self.tblSong.insert('', 'end', text=elem, values=(song.title, song.artist, song.version))
-
-        self.tblSong.tag_configure('done', foreground='gray')
-        # itmList = self.tblSong.get_children()
-        # self.tblSong.selection_toggle(itmList[0]) <---- CONVERSION: how to mark in-progress conversion
-        # self.tblSong.item(itmList[0], tags=('done')) <--- CONVERSION: how to mark item as done visually
     
     def onListSel(self, ev):
+        if self.conversion: return
+
         sels = self.tblSong.selection()
         gbl.songIdSelections = []
         for elem in sels:
@@ -220,13 +218,15 @@ class PreferencesWindow(ttk.Frame):
     def create_widgets(self):
         self.strFFmpeg = StringVar(None, value=config.ffmpegPath)
         
-        self.ffmpegLabel = ttk.Label(self, text='Path to FFmpeg')
+        self.ffmpegLabel = ttk.Label(self, text='FFmpeg Executable')
         self.entFFmpeg = ttk.Entry(self, width=60, textvariable=self.strFFmpeg)
+        self.lblFFmpegNote = ttk.Label(self, text='Leave blank to use FFmpeg from PATH')
         self.btnFFmpegBrowse = ttk.Button(self, text="Browse", command=self.ffmpeg_browse)
 
-        self.ffmpegLabel.grid(row = 0, column = 0, sticky=E, padx=(0, 5))
+        self.ffmpegLabel.grid(row = 0, column = 0, sticky = E, padx = (0, 5))
         self.entFFmpeg.grid(row = 0, column = 1)
-        self.btnFFmpegBrowse.grid(row = 1, column = 1, sticky=E, pady=(5, 0))
+        self.lblFFmpegNote.grid(row = 1, column = 1, sticky = W)
+        self.btnFFmpegBrowse.grid(row = 1, column = 1, sticky = E, pady = (5, 0))
 
     def ffmpeg_browse(self):
         newFile = filedialog.askopenfilename(initialfile=self.entFFmpeg.get())
@@ -294,7 +294,6 @@ class ConvertWindow(ttk.Frame):
         else:
             self.btnConvert.state(['disabled'])
 
-    # TODO: avoid UI freeze during conversion
     def begin_conversion(self):
         def stop_conversion():
             self.interruptConvert = True
@@ -309,25 +308,41 @@ class ConvertWindow(ttk.Frame):
         self.btnBrowse.state(['disabled'])
         self.btnConvert.state(['disabled'])
         self.btnCancel.configure(text='Stop', command=stop_conversion)
-        # convert files
+        
+        # convert files in a separate thread
+        Thread(target=self.convert).start()
+
+    def convert(self):
+        finishStat = 'Done!'
+        self.progressBar['value'] = 0
+        tblList = self.tblList.tblSong.get_children()
+
         for idx, id in enumerate(gbl.songIdSelections):
             self.strProgress.set('Converting ID {} [{}/{}]'.format(id, idx+1, len(gbl.songIdSelections)))
+            self.tblList.tblSong.selection_set(tblList[idx])
             self.update()
-            if self.interruptConvert:
-                self.interruptConvert = False
-                break
             try:
                 create_song_directory(id)
                 convert_chart(id)
                 convert_audio(id)
+                self.tblList.tblSong.item(tblList[idx], tags='done')
             except Exception as ex:
                 messagebox.showerror('Error', ex)
+                self.tblList.tblSong.item(tblList[idx], tags='error')
             finally:
                 self.progressBar['value'] += 1.0
                 self.update()
-        self.strProgress.set('Done! [{}/{}]'.format(idx+1, len(gbl.songIdSelections)))
+            
+            if self.interruptConvert:
+                finishStat = 'Interrupted by user.'
+                self.interruptConvert = False
+                break
+        
+        self.strProgress.set('{} [{}/{}]'.format(finishStat, idx+1, len(gbl.songIdSelections)))
         self.update()
+        self.convert_end()
 
+    def convert_end(self):
         # restore widgets
         self.entPath.state(['!disabled'])
         self.btnBrowse.state(['!disabled'])

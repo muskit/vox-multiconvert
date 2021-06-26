@@ -10,7 +10,7 @@ def main():
     # contentPath = '/Users/alex/Desktop/KFC/contents'
     # db = Database(contentPath)
     
-    config.init() # TODO: initialize config
+    config.init()
     ui_loop()
 
 if __name__ == '__main__':
