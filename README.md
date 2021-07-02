@@ -2,6 +2,8 @@
 A `.vox` to `.ksh` converter, with some additional features. Built off [TsFreddie's `vox2ksh` project](https://github.com/TsFreddie/VOX2KSH).
 Tested with December 2020 archives.
 
+![preview screenshot](assets/preview.png)
+
 ## Prerequisites
 `ffmpeg` install either on PATH or set up in `Edit > Preferences`.
 
@@ -19,3 +21,8 @@ or
 chmod +x vox-multiconvert.py
 ./vox-multiconvert.py # (shebang'd)
 ```
+
+## TODO
+* special case where each level of a song has its own audio file
+* sorting
+* searching/filtering

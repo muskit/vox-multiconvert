@@ -29,11 +29,11 @@ PREPEND_CONST = \
 ver=167
 bg=deepsea
 layer=wave
-mvol=91
+mvol=100
 pfiltergain=46
 filtertype=peak
 chokkakuautovol=0
-chokkakuvol=65
+chokkakuvol=69
 '''
 
 '''
