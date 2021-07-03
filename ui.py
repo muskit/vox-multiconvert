@@ -3,7 +3,6 @@ from tkinter import *
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 from threading import Thread
-from multiprocessing import Process
 
 from structs import Difficulty, Song
 from util import *
@@ -247,8 +246,10 @@ class ConvertWindow(ttk.Frame):
         self.pack(expand=YES, fill=BOTH)
         self.create_widgets()
         self.master.master.master.withdraw() # hide main window
+        self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.on_close)
         self.focus_force()
 
+        self.convertInProgress = False
         self.interruptConvert = False
     
     def create_widgets(self):
@@ -265,7 +266,7 @@ class ConvertWindow(ttk.Frame):
         self.entPath = ttk.Entry(self.pnlOptions, width=60, textvariable=self.strPath)
         self.btnBrowse = ttk.Button(self.pnlOptions, text="Browse", command=self.dir_dialog)
         self.btnConvert = ttk.Button(self.pnlOptions, text='Convert', command=self.begin_conversion)
-        self.btnCancel = ttk.Button(self.pnlOptions, text='Cancel', command=self.master.destroy)
+        self.btnCancel = ttk.Button(self.pnlOptions, text='Back', command=self.on_close)
 
         self.lblMsg.pack()
         self.tblList.pack(expand=YES, fill=BOTH)
@@ -282,6 +283,10 @@ class ConvertWindow(ttk.Frame):
             self.btnConvert.state(['!disabled'])
         else:
             self.btnConvert.state(['disabled'])
+
+    def on_close(self):
+        if not self.convertInProgress:
+            self.master.destroy()
 
     def dir_dialog(self):
         newPath = filedialog.askdirectory(initialdir=self.entPath.get())
@@ -300,15 +305,13 @@ class ConvertWindow(ttk.Frame):
 
         config.exportPath = self.entPath.get()
         config.save()
-        print('Beginning conversion!!!')
-        # disable window closing
-        self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW")
         # disable widgets
         self.entPath.state(['disabled'])
         self.btnBrowse.state(['disabled'])
         self.btnConvert.state(['disabled'])
         self.btnCancel.configure(text='Stop', command=stop_conversion)
         
+        self.convertInProgress = True
         # convert files in a separate thread
         Thread(target=self.convert).start()
 
@@ -321,13 +324,19 @@ class ConvertWindow(ttk.Frame):
             self.strProgress.set('Converting ID {} [{}/{}]'.format(id, idx+1, len(gbl.songIdSelections)))
             self.tblList.tblSong.selection_set(tblList[idx])
             self.update()
+            status = -1
             try:
+                status = 0
                 create_song_directory(id)
+                status = 1
                 convert_chart(id)
+                status = 2
                 convert_audio(id)
                 self.tblList.tblSong.item(tblList[idx], tags='done')
-            except Exception as ex:
-                messagebox.showerror('Error', ex)
+            except Exception as err:
+                raise err
+                a = messagebox.showerror('Error {}'.format(CONVERT_STAT[status]), err)
+                print(a)
                 self.tblList.tblSong.item(tblList[idx], tags='error')
             finally:
                 self.progressBar['value'] += 1.0
@@ -338,19 +347,18 @@ class ConvertWindow(ttk.Frame):
                 self.interruptConvert = False
                 break
         
+        self.tblList.tblSong.selection_set([])
         self.strProgress.set('{} [{}/{}]'.format(finishStat, idx+1, len(gbl.songIdSelections)))
         self.update()
         self.convert_end()
 
     def convert_end(self):
+        self.convertInProgress = False
         # restore widgets
         self.entPath.state(['!disabled'])
         self.btnBrowse.state(['!disabled'])
         self.btnConvert.state(['!disabled'])
-        self.btnCancel.configure(text='Exit', command=self.master.destroy)
-
-        # re-enable window closing
-        self.master.winfo_toplevel().protocol("WM_DELETE_WINDOW", self.master.destroy)
+        self.btnCancel.configure(text='Back', command=self.on_close)
 
     def destroy(self):
         self.master.master.winfo_toplevel().deiconify()

@@ -33,6 +33,13 @@ DIFF_ABBRV = {
 
 SONGID_BLACKLIST = ('1438', '1259')
 
+CONVERT_STAT = {
+    -1: '',
+    0: 'creating directory',
+    1: 'converting chart',
+    2: 'converting audio'
+}
+
 class PlaceholderEntry(ttk.Entry):
     def __init__(self, container, placeholder, *args, **kwargs):
         super().__init__(container, *args, **kwargs)

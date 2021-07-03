@@ -92,8 +92,7 @@ def convert_chart(songId):
             diff.num
         )
         chartPath = '{}/{}'.format(songPath, diff.chartPath)
-        ksh: str = vox2ksh(chartPath)[0]
-        ksh.replace
+        ksh = vox2ksh(chartPath)[0]
         with open('{}/{}/{}.ksh'.format(config.exportPath, song.folder, DIFF_ABBRV[diff.tag]), 'w', encoding="utf-8-sig", newline='\r\n') as f:
             f.write(prependCom + prependDif + PREPEND_CONST + ksh)
         illustExPath = '{}/{}/{}.png'.format(config.exportPath, song.folder, diff.illustIdx)
