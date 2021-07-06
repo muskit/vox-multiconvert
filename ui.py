@@ -42,7 +42,7 @@ class InitDirectorySelect(ttk.Frame):
         try:
             open_contents_db(self.strPath.get())
         except FileNotFoundError:
-            messagebox.showerror("Error", "{} could not be found. Check that the entered path is correct (should end in \"contents\").".format(MUSIC_DB_PATH))
+            messagebox.showerror("Error", "{} could not be found.\nCheck that the entered path is correct (should end in \"contents\").".format(MUSIC_DB_PATH))
             return
         except Exception as err:
             print('Unknown error occured: {}'.format(type(err)))
@@ -73,11 +73,18 @@ class SongList(ttk.Frame):
         self.refreshList()
 
     def create_widgets(self):
-        self.tblSong = ttk.Treeview(self, columns=('Title', 'Artist', 'Source'))
+        columns = ('Title', 'Artist', 'Source')
+        self.tblSong = ttk.Treeview(self, columns=columns)
+        for col in columns:
+            self.tblSong.heading(col, text=col, command=lambda _col=col: \
+                self.treeview_sort_column(_col, False))
+        # self.tblSong.heading('#0', text='ID', command=lambda _col='#0': \
+        #     self.treeview_sort_column(_col, False))
+        
         self.tblSong.heading('#0', text='ID')
-        self.tblSong.heading('#1', text='Title')
-        self.tblSong.heading('#2', text='Artist')
-        self.tblSong.heading('#3', text='Source')
+        # self.tblSong.heading('#1', text='Title')
+        # self.tblSong.heading('#2', text='Artist')
+        # self.tblSong.heading('#3', text='Source')
         self.tblSong.column('#0', width=80, stretch=NO)
         self.tblSong.column('#1', stretch=YES)
         self.tblSong.column('#2', stretch=YES)
@@ -123,6 +130,19 @@ class SongList(ttk.Frame):
     
     def select_all(self):
         self.tblSong.selection_set(self.tblSong.get_children())
+
+    # ref: https://stackoverflow.com/questions/1966929/tk-treeview-column-sort
+    def treeview_sort_column(self, col, reverse):
+        l = [(self.tblSong.set(k, col).lower(), k) for k in self.tblSong.get_children('')]
+        l.sort(reverse=reverse)
+
+        # rearrange items in sorted positions
+        for index, (val, k) in enumerate(l):
+            self.tblSong.move(k, '', index)
+
+        # reverse sort next time
+        self.tblSong.heading(col, command=lambda: \
+            self.treeview_sort_column(col, not reverse))
 
 class SongPreview(ttk.Frame):
     def __init__(self, master):
@@ -334,13 +354,13 @@ class ConvertWindow(ttk.Frame):
                 convert_audio(id)
                 self.tblList.tblSong.item(tblList[idx], tags='done')
             except Exception as err:
-                raise err
+                # raise err # for debugging
                 a = messagebox.showerror('Error {}'.format(CONVERT_STAT[status]), err)
                 print(a)
                 self.tblList.tblSong.item(tblList[idx], tags='error')
-            finally:
-                self.progressBar['value'] += 1.0
-                self.update()
+            
+            self.progressBar['value'] += 1.0
+            self.update()
             
             if self.interruptConvert:
                 finishStat = 'Interrupted by user.'
@@ -441,24 +461,31 @@ class MainApp(ttk.Frame):
         prefWin = PreferencesWindow(prefTl)
         prefTl.mainloop()
 
-def ui_loop():
+def ui_start():
     root = Tk()
     root.resizable(False, False)
-    
     # set directory
     dirSel = InitDirectorySelect(master=root)
     dirSel.mainloop()
-    del root
     if not dirSel.okClicked: return
+
+    del root
+    root = Tk()
 
     contentPath = dirSel.strPath.get()
     if not content_path_valid(contentPath):
         print("Bad path!")
         return
-    gbl.songDb = Database(contentPath)
+
+    try:
+        gbl.songDb = Database(contentPath)
+    except Exception:
+        messagebox.showerror('Error', 'An error has occured while initializing the database.')
+        return
+    
+    messagebox.showinfo('Database initialization complete!', 'This application is still in development.\nThings may be broken!')
 
     # start main application
-    root = Tk()
     main = MainApp(root)
     main.mainloop()
     

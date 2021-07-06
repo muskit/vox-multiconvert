@@ -2,7 +2,7 @@
 from util import cls
 
 from database import *
-from ui import ui_loop
+from ui import ui_start
 import config
 
 def main():
@@ -11,7 +11,7 @@ def main():
     # db = Database(contentPath)
     
     config.init()
-    ui_loop()
+    ui_start()
 
 if __name__ == '__main__':
     main()
