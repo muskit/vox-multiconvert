@@ -28,3 +28,4 @@ chmod +x vox-multiconvert.py
 * special case where each level of a song has its own audio file
 * sorting
 * searching/filtering
+* proper backgrounds
