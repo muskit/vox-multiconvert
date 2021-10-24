@@ -271,6 +271,14 @@ class ConvertWindow(ttk.Frame):
 
         self.convertInProgress = False
         self.interruptConvert = False
+
+        # check for EG charts' presence; warn about lasers
+        for id in gbl.songIdSelections:
+            print(gbl.songDb[id].version)
+            if gbl.songDb[id].version == "6":
+                self.master.winfo_toplevel().withdraw()
+                messagebox.showwarning('Conversion', 'Exceed Gear chart(s) selected. Lasers in Exceed Gear charts may convert incorrectly!')
+                self.master.winfo_toplevel().deiconify()
     
     def create_widgets(self):
         self.strProgress = StringVar()
@@ -483,7 +491,9 @@ def ui_start():
         messagebox.showerror('Error', 'An error has occured while initializing the database.')
         return
     
-    messagebox.showinfo('Database initialization complete!', 'This application is still in development.\nThings may be broken!')
+    root.winfo_toplevel().withdraw()
+    messagebox.showinfo('Database initialization completed', 'This application is still in development.\nThings may be broken!')
+    root.winfo_toplevel().deiconify()
 
     # start main application
     main = MainApp(root)
