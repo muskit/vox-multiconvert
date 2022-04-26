@@ -14,6 +14,9 @@ TsFreddie's converter isn't perfect, so he's made a repo with corrected chart fi
 * `Pillow`
 * `ffmpeg-python`
 
+## Cloning
+`git clone --recurse-submodules -j8 https://github.com/muskit/vox-multiconvert`
+
 ## Usage
 `python3 vox-multiconvert.py`
 
@@ -21,7 +24,7 @@ or
 
 ```
 chmod +x vox-multiconvert.py
-./vox-multiconvert.py # (shebang'd)
+./vox-multiconvert.py # (already shebang'd)
 ```
 
 ## TODO
